@@ -6,6 +6,7 @@ import Mathlib.Analysis.SpecialFunctions.Log.Base
 import Mathlib.Analysis.SpecialFunctions.Log.ERealExp
 import Mathlib.Analysis.SpecialFunctions.ImproperIntegrals
 import Mathlib.Analysis.ODE.Gronwall
+import Biocalculus.PReal
 
 -- Differential equations:
 
@@ -303,3 +304,32 @@ lemma infinite_Stewart (t : ℝ):
       simp
     )
     simp_all
+
+
+-- lemma Stewart_Example_9_1_1_infinite_case_PReal (c : PReal)
+--   (t : ℝ) (htc : 1 - c * Real.exp t ≠ 0) :
+--       let y : ℝ → ℝ := λ t ↦ ((1/c).toReal + Real.exp t)
+--                            / ((1/c).toReal - Real.exp t)
+--       deriv y t = (1/2) * ((y t)^2 -1) := by
+--   have htc' : (fun t ↦ 1 - c.toReal * Real.exp t) t ≠ 0 := by
+--     by_cases H : c = 0
+--     · subst H; simp
+--     · by_cases H₁ : c = ⊤
+--       · subst H₁
+--         simp
+--       · by_cases H₂ : c = ⊥
+--         · subst H₂
+--           simp
+--         · simp
+--           simp at htc
+--           contrapose htc
+--           simp at *
+--           let Q := (@EReal.coe_eq_coe_iff (1 - c.toReal * Real.exp t) 0).mpr htc
+--           simp at Q
+--           rw [← Q]
+--           suffices (c.toReal : EReal) = c by rw [this]
+--           exact EReal.coe_toReal H₁ H₂
+--   let Q := @Stewart_Example_9_1_1_like_the_infinite_case (c.toReal)
+--     t htc'
+--   rw [← one_div_ereal]
+--   exact Q
