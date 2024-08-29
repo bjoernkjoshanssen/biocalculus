@@ -160,76 +160,54 @@ lemma towards_1st_derivative_test_unbounded (f : ℝ → ℝ) (a b : ℝ)
 
 
 
-lemma towards_1st_derivative_test_bounded (f : ℝ → ℝ) (a b c : ℝ)
-  (g₀ : a < b)
-  (g₁ : b < c)
+
+lemma towards_1st_derivative_test_bounded {f : ℝ → ℝ} {a b c : ℝ}
+  (g₀ : a < b) (g₁ : b < c)
   (h₀ : StrictMonoOn f (Set.Icc a b))
   (h₁ : StrictAntiOn f (Set.Icc b c)) :
   IsLocalMax f b := by
     unfold IsLocalMax IsMaxFilter Filter.Eventually
     rw [nhds_def, Filter.mem_iInf]
     simp
-    show ∃ I : Set (Set ℝ), I.Finite ∧
-      ∃ V : I → Set ℝ,
-      (∀ (U : Set ℝ) (hU : U ∈ I),
-        V ⟨U, hU⟩ ∈ ⨅ (_ : b ∈ U ∧ IsOpen U), Filter.principal U) ∧
-        {x | f x ≤ f b} = ⋂ i, ⋂ (h : i ∈ I), V ⟨i, h⟩
-
-    exists {Set.Ioo a c}
-    exists (Set.toFinite _)
-    exists (fun _ ↦ Set.Ioo a c ∪ {x | f x ≤ f b})
+    exists {Set.Ioo a c}, (Set.toFinite _), (fun _ ↦ Set.Ioo a c ∪ {x | f x ≤ f b})
     simp only [Set.mem_singleton_iff, forall_eq, Set.mem_Ioo, Set.iInter_iInter_eq_left]
     constructor
-    refine Filter.mem_iInf_of_mem ?left.i ?left.hs
-    constructor
-    · constructor
-      · exact g₀
-      · exact g₁
-    · exact isOpen_Ioo
-    refine Filter.mem_principal.mpr ?left.hs.a
-    exact Set.subset_union_left
-    ext u
-    simp
-    intro H₀ H₁
-    by_cases G : u < b
-    suffices f u < f b by
-      exact le_of_lt this
-    apply h₀
-    simp
-    constructor
-    linarith
-    linarith
-    simp
-    linarith
-    tauto
-    by_cases J : u = b
-    subst J
-    exact Preorder.le_refl (f u)
+    apply Filter.mem_iInf_of_mem
+    · simp_all only [Filter.mem_principal, Set.subset_union_left]
+    · simp_all only [and_self, true_and]
+      exact isOpen_Ioo
+    · ext u
+      simp only [Set.mem_setOf_eq, Set.mem_union, Set.mem_Ioo, iff_or_self, and_imp]
+      intro H₀ H₁
+      by_cases G : u < b
+      · apply le_of_lt
+        apply h₀
+        simp_all only [Set.mem_Icc]
+        · constructor; repeat linarith
+        · simp only [Set.mem_Icc, le_refl, and_true]
+          linarith
+        · tauto
+      · by_cases J : u = b
+        · subst J
+          exact Preorder.le_refl (f u)
+        · apply le_of_lt
+          apply h₁
+          simp only [Set.mem_Icc, le_refl, true_and]
+          linarith
+          simp
+          · constructor; repeat linarith
+          · cases Decidable.lt_or_eq_of_le (le_of_not_lt G); repeat tauto
 
-    suffices f u < f b by
-      exact le_of_lt this
-    apply h₁
-    simp
-    linarith
-    simp
-    · constructor
-      · linarith
-      · linarith
-    · cases Decidable.lt_or_eq_of_le (le_of_not_lt G)
-      · tauto
-      · tauto
-
-lemma first_derivative_test (f : ℝ → ℝ) (h : Continuous f) (a b c:ℝ)
-  (g₀ : a < b) (g₁ : b < c)
+lemma first_derivative_test {f : ℝ → ℝ} (h : Continuous f) {a b c:ℝ}
+  {g₀ : a < b} {g₁ : b < c}
   (h₀ :  ∀ x ∈ interior (Set.Icc a b), 0 < deriv f x)
   (h₁ :  ∀ x ∈ interior (Set.Icc b c), deriv f x < 0)
   : IsLocalMax f b := by
-    let Q₀ := strictMonoOn_of_deriv_pos
-      (convex_Icc a b) (Continuous.continuousOn h) h₀
-    let Q₁ := strictAntiOn_of_deriv_neg
-      (convex_Icc b c) (Continuous.continuousOn h) h₁
     apply towards_1st_derivative_test_bounded
-    exact g₀;exact g₁;exact Q₀;exact Q₁
+    · exact g₀
+    · exact g₁
+    · exact strictMonoOn_of_deriv_pos (convex_Icc a b) (Continuous.continuousOn h) h₀
+    · exact strictAntiOn_of_deriv_neg (convex_Icc b c) (Continuous.continuousOn h) h₁
 
 -- We do not need to assume `b` is a critical point of `f` in the `first_derivative_test`.
 -- In fact, by Fermat's theorem, it must be.
