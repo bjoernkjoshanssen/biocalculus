@@ -4,6 +4,7 @@ import Mathlib.Analysis.SpecialFunctions.Pow.Real
 import Mathlib.Analysis.SpecialFunctions.Integrals
 import Mathlib.Analysis.SpecialFunctions.Log.Base
 import Mathlib.Analysis.SpecialFunctions.Log.ERealExp
+import Mathlib.Analysis.Calculus.FDeriv.Basic
 
 example : IsLocalMax Real.sin (Real.pi/2) := by
   unfold IsLocalMax IsMaxFilter Filter.Eventually
@@ -101,71 +102,14 @@ def of_notin (P : Prop) (T : Type) (t : Set T) (Q : P → Filter T)
   tauto
 
 
--- this can be generalized from ℝ
-lemma towards_1st_derivative_test_unbounded (f : ℝ → ℝ) (a b : ℝ)
-  (g₀ : a < b)
-  (h₀ : StrictMonoOn f (Set.Icc a b))
-  (h₁ : StrictAntiOn f (Set.Ici b)) :
-  IsLocalMax f b := by
-    unfold IsLocalMax IsMaxFilter Filter.Eventually
-    rw [nhds_def, Filter.mem_iInf]
-    simp
-    show ∃ I : Set (Set ℝ), I.Finite ∧
-      ∃ V : I → Set ℝ,
-      (∀ (U : Set ℝ) (hU : U ∈ I),
-        V ⟨U, hU⟩ ∈ ⨅ (_ : b ∈ U ∧ IsOpen U), Filter.principal U) ∧
-        {x | f x ≤ f b} = ⋂ i, ⋂ (h : i ∈ I), V ⟨i, h⟩
-    exists {Set.Ioi a}
-    exists (Set.toFinite _)
-    exists (fun _ ↦ Set.Ioi a ∪ {x | f x ≤ f b})
-    simp only [Set.mem_singleton_iff, forall_eq, Set.mem_Ioo, Set.iInter_iInter_eq_left]
-    constructor
-    refine Filter.mem_iInf_of_mem ?left.i ?left.hs
-    constructor
-    tauto
-    exact isOpen_Ioi
-    refine Filter.mem_principal.mpr ?left.hs.a
-    exact Set.subset_union_left
-    ext u
-    simp
-    intro H₀
-    by_cases G : u < b
-    suffices f u < f b by
-      exact le_of_lt this
-    apply h₀
-    simp
-    constructor
-    linarith
-    linarith
-    simp
-    linarith
-    tauto
-    by_cases J : u = b
-    subst J
-    exact Preorder.le_refl (f u)
-
-    suffices f u < f b by
-      exact le_of_lt this
-    apply h₁
-    simp
-    have : u ≥ b := le_of_not_lt G
-    exact this
-    have : u ≥ b := le_of_not_lt G
-    have : u > b ∨ u = b := by exact LE.le.gt_or_eq this
-    cases this
-    tauto
-    subst ‹u=b›
-    contrapose J
-    simp
 
 
 
-
-lemma towards_1st_derivative_test_bounded {f : ℝ → ℝ} {a b c : ℝ}
+-- August 29, 2024.
+lemma isLocalMax_of_mono_anti_Icc' (f : ℝ → ℝ) (a b : ℝ)
   (g₀ : a < b) (g₁ : b < c)
-  (h₀ : StrictMonoOn f (Set.Icc a b))
-  (h₁ : StrictAntiOn f (Set.Icc b c)) :
-  IsLocalMax f b := by
+  (h₀ : MonotoneOn f (Set.Icc a b))
+  (h₁ : AntitoneOn f (Set.Icc b c)) : IsLocalMax f b := by
     unfold IsLocalMax IsMaxFilter Filter.Eventually
     rw [nhds_def, Filter.mem_iInf]
     simp
@@ -180,30 +124,85 @@ lemma towards_1st_derivative_test_bounded {f : ℝ → ℝ} {a b c : ℝ}
       simp only [Set.mem_setOf_eq, Set.mem_union, Set.mem_Ioo, iff_or_self, and_imp]
       intro H₀ H₁
       by_cases G : u < b
-      · apply le_of_lt
-        apply h₀
+      · apply h₀
         simp_all only [Set.mem_Icc]
         · constructor; repeat linarith
         · simp only [Set.mem_Icc, le_refl, and_true]
           linarith
-        · tauto
+        · linarith
       · by_cases J : u = b
         · subst J
           exact Preorder.le_refl (f u)
-        · apply le_of_lt
-          apply h₁
+        · apply h₁
           simp only [Set.mem_Icc, le_refl, true_and]
           linarith
           simp
           · constructor; repeat linarith
-          · cases Decidable.lt_or_eq_of_le (le_of_not_lt G); repeat tauto
+          · linarith
+
+
+lemma isLocalMax_of_mono_anti_Icc {f : ℝ → ℝ} {a b c : ℝ}
+  (g₀ : a < b) (g₁ : b < c)
+  (h₀ : StrictMonoOn f (Set.Icc a b))
+  (h₁ : StrictAntiOn f (Set.Icc b c)) :
+  IsLocalMax f b := by
+    apply isLocalMax_of_mono_anti_Icc' f a b g₀ g₁
+    exact StrictMonoOn.monotoneOn h₀;
+    exact StrictAntiOn.antitoneOn h₁
+
+lemma isLocalMax_of_mono_anti_Ici (f : ℝ → ℝ) (a b : ℝ)
+  (g₀ : a < b)
+  (h₀ : StrictMonoOn f (Set.Icc a b))
+  (h₁ : StrictAntiOn f (Set.Ici b)) : IsLocalMax f b :=
+    isLocalMax_of_mono_anti_Icc g₀ (by show b < b+1; linarith) h₀ (by
+      intro _ hx _ hy hxy
+      apply h₁
+      exact Set.mem_of_mem_inter_left hx
+      exact Set.mem_of_mem_inter_left hy
+      exact hxy
+    )
+
+lemma first_derivative_test_strongest {f : ℝ → ℝ} (h : Continuous f) {a b c:ℝ}
+  {g₀ : a < b} {g₁ : b < c}
+  (hd : DifferentiableOn ℝ f (Set.Ioo a c))
+  (h₀ :  ∀ x ∈ interior (Set.Icc a b), 0 ≤ deriv f x)
+  (h₁ :  ∀ x ∈ interior (Set.Icc b c), deriv f x ≤ 0)
+  -- The strongest version should only have 0 ≤ deriv f x, but assume differentiability in the interval
+  : IsLocalMax f b := by
+  apply isLocalMax_of_mono_anti_Icc'
+  exact g₀;exact g₁;
+  refine monotoneOn_of_deriv_nonneg ?h₀.hD ?h₀.hf ?h₀.hf' h₀;
+  exact convex_Icc a b
+  exact Continuous.continuousOn h
+  intro x hx;unfold DifferentiableOn at hd;
+  have Q := hd x (by simp_all;linarith)
+  apply DifferentiableWithinAt.mono
+  exact Q;simp;intro z hz; simp_all;linarith
+
+  refine antitoneOn_of_deriv_nonpos ?h₁.hD ?h₁.hf ?h₁.hf' h₁
+  exact convex_Icc b c
+  exact Continuous.continuousOn h
+  intro x hx;unfold DifferentiableOn at hd;
+  have Q := hd x (by simp_all;linarith)
+  apply DifferentiableWithinAt.mono
+  exact Q;simp;intro z hz; simp_all;linarith
+
+lemma first_derivative_test_strongest! {f : ℝ → ℝ} (h : Continuous f) {a b c:ℝ}
+  {g₀ : a < b} {g₁ : b < c}
+  (hd : DifferentiableOn ℝ f (Set.Ioo a c))
+  (h₀ :  ∀ x ∈ Set.Ioo a b, 0 ≤ deriv f x)
+  (h₁ :  ∀ x ∈ Set.Ioo b c, deriv f x ≤ 0)
+  : IsLocalMax f b := by
+  apply first_derivative_test_strongest h hd
+  simp_all; intros; apply h₁; simp_all; repeat tauto
+
 
 lemma first_derivative_test {f : ℝ → ℝ} (h : Continuous f) {a b c:ℝ}
   {g₀ : a < b} {g₁ : b < c}
   (h₀ :  ∀ x ∈ interior (Set.Icc a b), 0 < deriv f x)
   (h₁ :  ∀ x ∈ interior (Set.Icc b c), deriv f x < 0)
   : IsLocalMax f b := by
-    apply towards_1st_derivative_test_bounded
+    apply isLocalMax_of_mono_anti_Icc
     · exact g₀
     · exact g₁
     · exact strictMonoOn_of_deriv_pos (convex_Icc a b) (Continuous.continuousOn h) h₀
@@ -218,7 +217,8 @@ lemma first_derivative_test_missing_assumption (f : ℝ → ℝ) (h : Continuous
     deriv f b = 0 := by
     apply IsLocalMax.deriv_eq_zero
     apply first_derivative_test
-    tauto;exact g₀;exact g₁;exact h₀;exact h₁
+    simp_all
+    tauto;exact g₁;exact h₀;exact h₁
 
 
 lemma first_derivative_test_unbounded (f : ℝ → ℝ) (h : Continuous f)
@@ -227,14 +227,7 @@ lemma first_derivative_test_unbounded (f : ℝ → ℝ) (h : Continuous f)
   (h₀ :  ∀ x ∈ interior (Set.Icc a b), 0 < deriv f x)
   (h₁ :  ∀ x ∈ interior (Set.Ici b), deriv f x < 0)
   : IsLocalMax f b := by
-    let Q₀ := strictMonoOn_of_deriv_pos
-      (convex_Icc a b) (Continuous.continuousOn h) h₀
-    let Q₁ := strictAntiOn_of_deriv_neg
-      (convex_Ici b) (Continuous.continuousOn h) h₁
-    apply towards_1st_derivative_test_unbounded
-    exact g₀;
-    tauto
-    tauto
+    exact @first_derivative_test f h a b (b+1) g₀ (by linarith) h₀ (by intros; apply h₁; simp_all)
 
 
 example : IsLocalMax Real.sin (Real.pi/2) := by
